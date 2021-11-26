@@ -2,7 +2,6 @@ package com.api.monitor.service;
 
 import com.api.monitor.model.AggregateResponse;
 import com.api.monitor.model.RequestLog;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -12,12 +11,20 @@ import java.util.Map;
 import java.util.Vector;
 import java.util.stream.Collectors;
 
-@Service
 public class RequestLogService {
+    private static RequestLogService single_instance = null;
+
     private Vector<RequestLog> requestLogs;
 
-    public RequestLogService() {
+    private RequestLogService() {
         this.requestLogs = new Vector<>();
+    }
+
+    public static RequestLogService getInstance() {
+        if (single_instance == null) {
+            single_instance = new RequestLogService();
+        }
+        return single_instance;
     }
 
     public void addRequestLogService(RequestLog log) {

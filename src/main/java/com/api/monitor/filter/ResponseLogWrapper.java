@@ -1,6 +1,7 @@
 package com.api.monitor.filter;
 
 import javax.servlet.ServletOutputStream;
+import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 import java.io.*;
@@ -18,8 +19,9 @@ public class ResponseLogWrapper extends HttpServletResponseWrapper {
     }
 
     private ServletOutputStream outputStream;
+    private RequestLoggingServletOutputStream reqStream;
     private PrintWriter writer;
-    private ByteArrayOutputStream baos;
+
 
     @Override
     public ServletOutputStream getOutputStream() throws IOException {
@@ -29,9 +31,10 @@ public class ResponseLogWrapper extends HttpServletResponseWrapper {
 
         if (outputStream == null) {
             outputStream = getResponse().getOutputStream();
-            this.baos = new ByteArrayOutputStream(1024);
+            reqStream = new RequestLoggingServletOutputStream(outputStream);
         }
-        return outputStream;
+
+        return reqStream;
     }
 
     @Override
@@ -41,7 +44,8 @@ public class ResponseLogWrapper extends HttpServletResponseWrapper {
         }
 
         if (writer == null) {
-            writer = new PrintWriter(new OutputStreamWriter(outputStream, getResponse().getCharacterEncoding()), true);
+            reqStream = new RequestLoggingServletOutputStream(getResponse().getOutputStream());
+            writer = new PrintWriter(new OutputStreamWriter(reqStream, getResponse().getCharacterEncoding()), true);
         }
 
         return writer;
@@ -52,22 +56,73 @@ public class ResponseLogWrapper extends HttpServletResponseWrapper {
         if (writer != null) {
             writer.flush();
         } else if (outputStream != null) {
-            outputStream.flush();
+            reqStream.flush();
         }
     }
 
     public String getContent() {
         try {
             flushBuffer();
-            if (outputStream == null) {
+            if (reqStream == null) {
                 return null;
             }
             String responseEncoding = getResponse().getCharacterEncoding();
-            return baos.toString(responseEncoding != null ? responseEncoding : UTF_8.name());
+            return reqStream.baos.toString(responseEncoding != null ? responseEncoding : UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             return "[UNSUPPORTED ENCODING]";
         } catch (IOException e) {
             return "[IO EXCEPTION]";
         }
     }
+
+    private class RequestLoggingServletOutputStream extends ServletOutputStream {
+        public RequestLoggingServletOutputStream(ServletOutputStream outputStream) {
+
+            this.outputStream = outputStream;
+            this.baos = new ByteArrayOutputStream(1024);
+        }
+
+        private ServletOutputStream outputStream;
+        private ByteArrayOutputStream baos;
+
+        @Override
+        public boolean isReady() {
+            return outputStream.isReady();
+        }
+
+        @Override
+        public void setWriteListener(WriteListener writeListener) {
+            outputStream.setWriteListener(writeListener);
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            outputStream.write(b);
+            baos.write(b);
+        }
+
+        @Override
+        public void write(byte[] b) throws IOException {
+            outputStream.write(b);
+            baos.write(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            outputStream.write(b, off, len);
+            baos.write(b, off, len);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            outputStream.flush();
+            baos.flush();
+        }
+
+        public void close() throws IOException {
+            outputStream.close();
+            baos.close();
+        }
+    }
+
 }
