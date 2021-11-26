@@ -25,26 +25,20 @@ public class RequestLoggingFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        //System.out.println("RequestLoggingFilter doFilter");
         Date before = new java.util.Date();
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
-        //System.out.println("Before RequestURL: " +httpRequest.getRequestURI() );
-
         ResponseLogWrapper responseWrapper = new ResponseLogWrapper(httpResponse);
 
         chain.doFilter(request, responseWrapper);
-        //System.out.println("After RequestURL: " +httpRequest.getRequestURI() );
 
         long contentSize = 0;
         if (!(responseWrapper.getResponse() instanceof ResponseLogWrapper)) {
-            //System.out.println(httpRequest.getRequestURI() + ", len: " + responseWrapper.getContent() != null ? responseWrapper.getContent().getBytes().length : 0);
             contentSize = responseWrapper.getContent() != null ? responseWrapper.getContent().getBytes().length : 0;
         }
 
         long after= System.currentTimeMillis();
         long totalTime = (after - before.getTime());
-        //System.out.println("Total time for the RequestURL: " +httpRequest.getRequestURI() +", is : " +totalTime  + " ms");
         requestLogService.addRequestLogService(new RequestLog(httpRequest.getRequestURI(),httpRequest.getMethod(), before, totalTime, contentSize));
     }
 
